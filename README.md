@@ -1,7 +1,7 @@
 # CS336 Spring 2025 Assignment 3: Scaling
 
 For a full description of the assignment, see the assignment handout at
-[cs336_spring2024_assignment3_scaling.pdf](./cs336_spring2024_assignment3_scaling.pdf)
+[cs336_spring2025_assignment3_scaling.pdf](./cs336_spring2025_assignment3_scaling.pdf)
 
 If you see any issues with the assignment handout or code, please feel free to
 raise a GitHub issue or open a pull request with a fix.
