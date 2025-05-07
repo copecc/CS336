@@ -2,7 +2,10 @@
 
 All changes we make to the assignment code or PDF will be documented in this file.
 
-## [unreleased] - yyyy-mm-dd
+## [1.0.0] - 2024-04-30
+- handout: document end point for previous runs
+- api: add endpoint for previous runs
+- api: use xgboost regressor instead of sklearn tree regressor
 
 ### Added
 
