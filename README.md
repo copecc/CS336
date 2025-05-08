@@ -1,7 +1,7 @@
-# CS336 Spring 2024 Assignment 4: Data
+# CS336 Spring 2025 Assignment 4: Data
 
 For a full description of the assignment, see the assignment handout at
-[cs336_spring2024_assignment4_data.pdf](./cs336_spring2025_assignment4_data.pdf)
+[cs336_spring2025_assignment4_data.pdf](./cs336_spring2025_assignment4_data.pdf)
 
 If you see any issues with the assignment handout or code, please feel free to
 raise a GitHub issue or open a pull request with a fix.
@@ -27,12 +27,12 @@ Visually, it should look something like:
 ├── cs336_basics  # A python module named cs336_basics
 │   ├── __init__.py
 │   └── ... other files in the cs336_basics module, taken from assignment 1 ...
-├── cs336_data  # TODO(you): code that you'll write for assignment 2 
+├── cs336_data  # TODO(you): code that you'll write for assignment 4 
 │   ├── __init__.py
-│   └── ... TODO(you): any other files or folders you need for assignment 2 ...
+│   └── ... TODO(you): any other files or folders you need for assignment 4 ...
 ├── README.md
 ├── pyproject.toml
-└── ... TODO(you): other files or folders you need for assignment 2 ...
+└── ... TODO(you): other files or folders you need for assignment 4 ...
 ```
 
 If you would like to use your own implementation of assignment 1, replace the `cs336-basics`
