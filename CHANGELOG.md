@@ -2,6 +2,13 @@
 
 All changes we make to the assignment code or PDF will be documented in this file.
 
+## [1.0.1] - 2025-05-11
+
+### Changed
+- handout: clarify that students should use the provided training script, not their own train script
+- handout: change references to WARC files in the final filtering step to WET files
+- handout: provide hints on helpful classes to process the WET files
+
 ## [1.0.0] - 2025-05-07
 
 ### Added
