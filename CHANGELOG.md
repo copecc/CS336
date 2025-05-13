@@ -2,6 +2,14 @@
 
 All changes we make to the assignment code or PDF will be documented in this file.
 
+## [1.0.2] - 2025-05-12
+
+### Changed
+- code: update `README.md` to clarify that students should use the provided training script, not their own train script
+- code: update dependencies (`pyproject.toml` and `uv.lock`) with packages for WARC processing: `fastwarc` and `tldextract`
+- handout: add hint to use `fastwarc` for WARC record iteration earlier in assignment
+- handout: fix Together cluster paths to hatespeech and nsfw classifiers
+
 ## [1.0.1] - 2025-05-11
 
 ### Changed

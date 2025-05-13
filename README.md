@@ -12,22 +12,19 @@ This directory is organized as follows:
 
 - [`./cs336-basics`](./cs336-basics): directory containing a module
   `cs336_basics` and its associated `pyproject.toml`. This module contains the staff 
-  implementation of the language model from assignment 1. If you want to use your own 
-  implementation, you can replace this directory with your own implementation.
+  implementation of the language model from assignment 1. You will use this training code
+  to train an LM on your filtered data. You should not modify the training logic, since
+  your leaderboard submission must use it exactly.
 - [`./cs336_data`](./cs336_data): This folder is basically empty! This is the
-  module where you will implement your optimized Transformer language model. 
-  Feel free to take whatever code you need from assignment 1 (in `cs336-basics`) and copy it 
-  over as a starting point. In addition, you will implement distributed training and
-  optimization in this module.
+  module where you will implement code to filter and process the data.
 
 Visually, it should look something like:
 
 ``` sh
 .
 ├── cs336_basics  # A python module named cs336_basics
-│   ├── __init__.py
-│   └── ... other files in the cs336_basics module, taken from assignment 1 ...
-├── cs336_data  # TODO(you): code that you'll write for assignment 4 
+│   └── ... an optimized training implementation ...
+├── cs336_data  # TODO(you): code that you'll write for assignment 4
 │   ├── __init__.py
 │   └── ... TODO(you): any other files or folders you need for assignment 4 ...
 ├── README.md
@@ -35,9 +32,7 @@ Visually, it should look something like:
 └── ... TODO(you): other files or folders you need for assignment 4 ...
 ```
 
-If you would like to use your own implementation of assignment 1, replace the `cs336-basics`
-directory with your own implementation, or edit the outer `pyproject.toml` file to point to your
-own implementation. As in previous assignments, we use `uv` to manage dependencies.
+As in previous assignments, we use `uv` to manage dependencies.
 
 ## Submitting
 
