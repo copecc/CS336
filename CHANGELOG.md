@@ -2,6 +2,12 @@
 
 All changes we make to the assignment code or PDF will be documented in this file.
 
+## [1.0.3] - 2025-05-18
+
+### Changed
+- code: update Paloma validation set file name to `tokenized_paloma_c4_100_domains_validation.bin`, as it is a binary file loaded with `np.fromfile("/data/paloma/tokenized_paloma_c4_100_domains_validation.bin", dtype=np.uint16)`
+- handout: add guidance to load the validation set with `np.fromfile`, and update references to new file name
+
 ## [1.0.2] - 2025-05-12
 
 ### Changed
