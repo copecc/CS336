@@ -2,6 +2,10 @@
 
 All changes we make to the assignment code or PDF will be documented in this file.
 
+## [1.0.4] - 2025-05-19
+### Changed
+- code: Halve training tokens for the leaderboard run
+
 ## [1.0.3] - 2025-05-18
 
 ### Changed
