@@ -27,6 +27,8 @@ class BPETokenizer:
             (token1, token2): i for i, (token1, token2) in enumerate(merges)
         }
 
+        self.cache = {}
+
     def _apply_bpe(self, token: bytes) -> list[int]:
         """
         Apply BPE merges to a token.
@@ -34,6 +36,10 @@ class BPETokenizer:
 
         if len(token) <= 1:
             return [self.byte_to_token_id[token]]
+
+        if token in self.cache:
+            return self.cache[token]
+
         token_bytes = [bytes([b]) for b in token]
 
         while True:
@@ -66,6 +72,7 @@ class BPETokenizer:
         for byte in token_bytes:
             token_id.append(self.byte_to_token_id[byte])
 
+        self.cache[token] = token_id
         return token_id
 
     def encode(self, text: str) -> list[int]:

@@ -84,7 +84,9 @@ def pretokenize_text(text, special_tokens: list[str]) -> list[bytes]:
     return list(pretokenize_iter(text, special_tokens))
 
 
-def pretokenize_chunk(input_path, start, end, special_tokens: list[str]) -> Counter:
+def pretokenize_chunk_to_counter(
+    input_path, start, end, special_tokens: list[str]
+) -> Counter:
     """
     Pre-tokenize a chunk of text into sub-word tokens, returning a token frequency counter excluding special tokens.
     """
@@ -103,25 +105,24 @@ def pretokenize_chunk(input_path, start, end, special_tokens: list[str]) -> Coun
     return pretoken_counter
 
 
-def pretokenize_file(input_path, special_tokens: list[str]) -> Counter:
+def pretokenize_file_to_counter(
+    input_path, special_tokens: list[str], desired_num_chunks: int = 8
+) -> Counter:
     """
     Pre-tokenize the entire input file.
     """
-    num_processes = min(mp.cpu_count(), 8)
 
     pretoken_counter = Counter()
     with open(input_path, "rb") as f:
-        boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
+        boundaries = find_chunk_boundaries(f, desired_num_chunks, b"<|endoftext|>")
 
     chunk_tasks = [
         (input_path, start, end, special_tokens)
         for start, end in zip(boundaries[:-1], boundaries[1:])
     ]
 
-    with mp.Pool(processes=num_processes) as pool:
-        results = pool.starmap(pretokenize_chunk, chunk_tasks)
-
-    for result in results:
-        pretoken_counter += result
+    with mp.Pool(processes=min(desired_num_chunks, 4 * mp.cpu_count() // 5)) as pool:
+        for result in pool.starmap(pretokenize_chunk_to_counter, chunk_tasks):
+            pretoken_counter += result
 
     return pretoken_counter

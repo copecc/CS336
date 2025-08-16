@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 
 from cs336_basics.bpe_tokenizer.common import gpt2_bytes_to_unicode
-from cs336_basics.bpe_tokenizer.pretokenization import pretokenize_file
+from cs336_basics.bpe_tokenizer.pretokenization import pretokenize_file_to_counter
 
 
 @dataclass
@@ -109,13 +109,15 @@ class BPETrainer:
 
         return new_pair_counter
 
-    def train(self, input_path: str | os.PathLike):
+    def train(self, input_path: str | os.PathLike, desired_num_chunks: int = 8):
         """
         Train the BPE model on the given input file.
         """
         self._init_vocab()
 
-        token_counter = pretokenize_file(input_path, self.special_tokens)
+        token_counter = pretokenize_file_to_counter(
+            input_path, self.special_tokens, desired_num_chunks
+        )
         # convert tuples to lists for mutability and easier indexing
         token_counter = [
             ([bytes([b]) for b in token], count)
@@ -233,4 +235,5 @@ def train_bpe(
     Returns the vocabulary and merges.
     """
     trainer = BPETrainer(vocab_size, special_tokens)
-    return trainer.train(input_path)
+    desired_num_chunks = kwargs.get("desired_num_chunks", 8)
+    return trainer.train(input_path, desired_num_chunks)
