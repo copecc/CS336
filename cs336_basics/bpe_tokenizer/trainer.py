@@ -5,6 +5,7 @@ import os
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 
+from cs336_basics.bpe_tokenizer.common import gpt2_bytes_to_unicode
 from cs336_basics.bpe_tokenizer.pretokenization import pretokenize_file
 
 
@@ -33,6 +34,8 @@ class BPETrainer:
 
         self.vocab: dict[int, bytes] = {}
         self.merges: list[tuple[bytes, bytes]] = []
+
+        self.vocab_set = set()  # keep track of all unique byte values
 
     def _init_vocab(self):
         """
@@ -138,7 +141,7 @@ class BPETrainer:
 
         merge_count = self.vocab_size - len(self.vocab) - len(self.special_tokens)
 
-        for _ in range(merge_count):
+        while merge_count > 0:
             if not heap:
                 break
 
@@ -159,11 +162,7 @@ class BPETrainer:
                 break
 
             most_frequent_pair = (most_frequent_item.token1, most_frequent_item.token2)
-
-            new_token_id = len(self.vocab)
             merged_bytes = most_frequent_pair[0] + most_frequent_pair[1]
-            self.vocab[new_token_id] = merged_bytes
-            self.merges.append(most_frequent_pair)
 
             # update the counters and get the new pairs counter
             new_pair_counter = self._update_counter(
@@ -179,42 +178,46 @@ class BPETrainer:
                 pair_item = PairItem(new_pair[0], new_pair[1], pair_counter[new_pair])
                 heapq.heappush(heap, pair_item)
 
+            # only add unique tokens to vocab to avoid duplicates.
+            # different pairs may produce the same merged result, especially with repetitive characters
+            # e.g., (b'rr', b'r') and (b'r', b'rr') both produce b'rrr'.
+            # ensure each unique token gets only one ID.
+            if merged_bytes in self.vocab_set:
+                continue
+            self.vocab_set.add(merged_bytes)
+
+            new_token_id = len(self.vocab)
+            self.vocab[new_token_id] = merged_bytes
+            self.merges.append(most_frequent_pair)
+            merge_count -= 1
+
         self._finalize_vocab()
 
         return self.vocab, self.merges
 
-    def to_files(
-        self,
-        vocab_filepath: str | os.PathLike,
-        merges_filepath: str | os.PathLike,
-    ):
+    def to_files(self, vocab_path: str | os.PathLike, merges_path: str | os.PathLike):
         """
         Save the trained vocabulary and merges to files.
         """
+        gpt2_byte_encoder = gpt2_bytes_to_unicode()
         # save vocabulary as JSON: {"token": id}
         vocab_dict = {}
+        print(
+            f"vocab size: {len(self.vocab.values())}, set vocab size: {len(set(self.vocab.values()))}"
+        )
         for token_id, token_bytes in self.vocab.items():
-            # decode bytes to string for JSON serialization
-            try:
-                token_str = token_bytes.decode("utf-8")
-            except UnicodeDecodeError:
-                # handle non-UTF8 bytes (e.g., individual byte tokens)
-                token_str = "".join(chr(b) for b in token_bytes)
+            token_str = "".join(gpt2_byte_encoder[b] for b in token_bytes)
             vocab_dict[token_str] = token_id
 
-        with open(vocab_filepath, "w", encoding="utf-8") as f:
+        with open(vocab_path, "w", encoding="utf-8") as f:
             json.dump(vocab_dict, f, ensure_ascii=False, indent=2)
 
         # save merges as text file: "token1 token2" per line
-        with open(merges_filepath, "w", encoding="utf-8") as f:
+
+        with open(merges_path, "w", encoding="utf-8") as f:
             for token1_bytes, token2_bytes in self.merges:
-                try:
-                    token1_str = token1_bytes.decode("utf-8")
-                    token2_str = token2_bytes.decode("utf-8")
-                except UnicodeDecodeError:
-                    # handle non-UTF8 bytes
-                    token1_str = "".join(chr(b) for b in token1_bytes)
-                    token2_str = "".join(chr(b) for b in token2_bytes)
+                token1_str = "".join(gpt2_byte_encoder[b] for b in token1_bytes)
+                token2_str = "".join(gpt2_byte_encoder[b] for b in token2_bytes)
 
                 f.write(f"{token1_str} {token2_str}\n")
 
@@ -229,5 +232,5 @@ def train_bpe(
     Train a BPE tokenizer on the given input file.
     Returns the vocabulary and merges.
     """
-    tokenizer = BPETrainer(vocab_size, special_tokens)
-    return tokenizer.train(input_path)
+    trainer = BPETrainer(vocab_size, special_tokens)
+    return trainer.train(input_path)
