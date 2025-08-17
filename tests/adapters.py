@@ -14,12 +14,13 @@ from cs336_basics.bpe_tokenizer.trainer import train_bpe
 from cs336_basics.transformer.nn_utils import (
     cross_entropy,
     scaled_dot_product_attention,
+    silu,
     softmax,
 )
 from cs336_basics.transformer.model import (
+    CausalMultiHeadSelfAttention,
     Embedding,
     Linear,
-    MultiHeadSelfAttention,
     RMSNorm,
     RotaryPositionalEmbedding,
     SwiGLUFeedForward,
@@ -110,13 +111,7 @@ def run_swiglu(
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
     swiglu = SwiGLUFeedForward(d_model, d_ff)
-    swiglu.load_state_dict(
-        {
-            "w1.weight": w1_weight,
-            "w2.weight": w2_weight,
-            "w3.weight": w3_weight,
-        }
-    )
+    swiglu.load_state_dict({"w1.weight": w1_weight, "w2.weight": w2_weight, "w3.weight": w3_weight})
     return swiglu(in_features)
 
 
@@ -172,14 +167,9 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    multihead_self_attention = MultiHeadSelfAttention(d_model, num_heads)
+    multihead_self_attention = CausalMultiHeadSelfAttention(d_model, num_heads)
     qkv_proj_weight = torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0)
-    multihead_self_attention.load_state_dict(
-        {
-            "qkv_proj.weight": qkv_proj_weight,
-            "output_proj.weight": o_proj_weight,
-        }
-    )
+    multihead_self_attention.load_state_dict({"qkv_proj.weight": qkv_proj_weight, "output_proj.weight": o_proj_weight})
     return multihead_self_attention(in_features)
 
 
@@ -220,17 +210,16 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    multihead_self_attention = MultiHeadSelfAttention(
-        d_model, num_heads, theta, max_seq_len
-    )
+    rope = RotaryPositionalEmbedding(theta, d_model // num_heads, max_seq_len)
+    multihead_self_attention_rope = CausalMultiHeadSelfAttention(d_model, num_heads, rope)
     qkv_proj_weight = torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=0)
-    multihead_self_attention.load_state_dict(
+    multihead_self_attention_rope.load_state_dict(
         {
             "qkv_proj.weight": qkv_proj_weight,
             "output_proj.weight": o_proj_weight,
         }
     )
-    return multihead_self_attention(in_features, token_positions=token_positions)
+    return multihead_self_attention_rope(in_features, token_positions=token_positions)
 
 
 def run_rope(
@@ -326,13 +315,7 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    transformer_block = TransformerBlock(
-        d_model=d_model,
-        num_heads=num_heads,
-        d_ff=d_ff,
-        theta=theta,
-        max_seq_len=max_seq_len,
-    )
+    transformer_block = TransformerBlock(d_model, num_heads, d_ff, theta=theta, max_seq_len=max_seq_len)
 
     weights["attn.qkv_proj.weight"] = torch.cat(
         [
@@ -429,9 +412,7 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    transformer_lm = TransformerLM(
-        vocab_size, context_length, num_layers, d_model, num_heads, d_ff, rope_theta
-    )
+    transformer_lm = TransformerLM(vocab_size, context_length, num_layers, d_model, num_heads, d_ff, rope_theta)
 
     for i in range(num_layers):
         weights[f"layers.{i}.attn.qkv_proj.weight"] = torch.cat(
@@ -486,7 +467,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    return in_features * torch.sigmoid(in_features)
+    return silu(in_features)
 
 
 def run_get_batch(
@@ -546,9 +527,7 @@ def run_cross_entropy(
     return cross_entropy(inputs, targets)
 
 
-def run_gradient_clipping(
-    parameters: Iterable[torch.nn.Parameter], max_l2_norm: float
-) -> None:
+def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
     """Given a set of parameters, clip their combined gradients to have l2 norm at most max_l2_norm.
 
     Args:
@@ -592,9 +571,7 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    return lr_cosine_schedule(
-        it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters
-    )
+    return lr_cosine_schedule(it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters)
 
 
 def run_save_checkpoint(

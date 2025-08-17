@@ -86,9 +86,7 @@ class AdamW(torch.optim.Optimizer):
         - Momentum helps escape local minima and smooth optimization
     """
 
-    def __init__(
-        self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=1e-2
-    ):
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=1e-2):
         """
         Initialize the AdamW optimizer.
         """
@@ -145,11 +143,7 @@ class AdamW(torch.optim.Optimizer):
 
 
 def lr_cosine_schedule(
-    t: int,
-    max_learning_rate: float,
-    min_learning_rate: float,
-    warmup_iters: int,
-    cosine_annealing_iters: int,
+    t: int, max_learning_rate: float, min_learning_rate: float, warmup_iters: int, cosine_annealing_iters: int
 ) -> float:
     """
     Compute the learning rate for a given step using a cosine schedule with warmup.
@@ -181,15 +175,11 @@ def lr_cosine_schedule(
     return min_learning_rate + cosine_factor * (max_learning_rate - min_learning_rate)
 
 
-def gradient_clipping(
-    parameters: Iterable[torch.nn.Parameter], max_l2_norm: float, eps: float = 1e-6
-):
+def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float, eps: float = 1e-6):
     """
     Apply gradient clipping to the given parameters.
     """
-    l2_norm = math.sqrt(
-        sum(torch.sum(p.grad.data**2).item() for p in parameters if p.grad is not None)
-    )
+    l2_norm = math.sqrt(sum(torch.sum(p.grad.data**2).item() for p in parameters if p.grad is not None))
     if l2_norm < max_l2_norm:
         return
 

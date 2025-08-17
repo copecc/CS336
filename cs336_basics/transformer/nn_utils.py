@@ -6,6 +6,19 @@ from math import sqrt
 from torch import Tensor
 
 
+def silu(x: torch.Tensor) -> torch.Tensor:
+    """
+    Compute the Sigmoid Linear Unit (SiLU) activation function.
+
+    Mathematical formula:
+        SiLU(x) = x * sigmoid(x)
+        where sigmoid(x) = 1 / (1 + exp(-x))
+
+    This function is differentiable and smooth, making it suitable for deep learning models.
+    """
+    return x * torch.sigmoid(x)
+
+
 def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
     """
     Compute the softmax of a tensor along a specified dimension.
@@ -26,7 +39,7 @@ def scaled_dot_product_attention(
     Q: Float[Tensor, " ... queries d_k"],
     K: Float[Tensor, " ... keys d_k"],
     V: Float[Tensor, " ... values d_v"],
-    mask: Float[Tensor, " ... queries keys"] | None = None,
+    mask: Float[Tensor, " ... queries keys"] = None,
 ) -> Float[Tensor, " ... queries d_v"]:
     """
     Compute the scaled dot-product attention.
@@ -44,7 +57,7 @@ def scaled_dot_product_attention(
         Without scaling, dot products grow with √d_k, pushing softmax into saturation regions with small gradients.
         Scaling by 1/√d_k normalizes the variance of dot products to be ~1.
     """
-    d_k = Q.size(-1)
+    d_k = K.size(-1)
     # QK^T gives similarity between each query and each key
     scores = einsum(Q, K, " ... q d_k, ... k d_k -> ... q k") / sqrt(d_k)
 
