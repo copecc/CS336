@@ -41,11 +41,7 @@ def train_bpe_tokenizer(
     return BPETokenizer(vocab, merges)
 
 
-def load_bpe_tokenizer(
-    vocab_path: str | os.PathLike,
-    merge_path: str | os.PathLike,
-    special_tokens: list[str] = None,
-):
+def load_bpe_tokenizer(vocab_path: str | os.PathLike, merge_path: str | os.PathLike, special_tokens: list[str] = None):
     """
     Load a BPE tokenizer from the given vocab and merge files.
     """
@@ -57,9 +53,7 @@ def tokenize_chunk(input_path, start, end, tokenizer: BPETokenizer) -> list[int]
     """
     Tokenize a chunk of text from the input file.
     """
-    logger.debug(
-        f"Tokenizing bytes {start}-{end}, total {(end - start) / (1024 * 1024):.2f} MB..."
-    )
+    logger.debug(f"Tokenizing bytes {start}-{end}, total {(end - start) / (1024 * 1024):.2f} MB...")
 
     ids = []
     with open(input_path, "rb") as f:
@@ -73,12 +67,8 @@ def tokenize_chunk(input_path, start, end, tokenizer: BPETokenizer) -> list[int]
 
 
 def encode_file(
-    input_path: str,
-    tokenizer: BPETokenizer,
-    output_file: str,
-    use_memmap: bool = False,
-    desired_num_chunks: int = 8,
-) -> None:
+    input_path: str, tokenizer: BPETokenizer, output_file: str, use_memmap: bool = False, desired_num_chunks: int = 8
+):
     """
     Encode a text file into a sequence of token IDs.
     """
@@ -86,10 +76,7 @@ def encode_file(
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, desired_num_chunks, b"<|endoftext|>")
     # safe to use same tokenizer since encode() is stateless
-    chunk_tasks = [
-        (input_path, start, end, tokenizer)
-        for start, end in zip(boundaries[:-1], boundaries[1:])
-    ]
+    chunk_tasks = [(input_path, start, end, tokenizer) for start, end in zip(boundaries[:-1], boundaries[1:])]
 
     logger.info(f"Encoding file {input_path} using {desired_num_chunks} chunks...")
 
@@ -116,12 +103,7 @@ def encode_file(
     logger.success(f"Saved token array to {output_file}")
 
 
-def encode_file_streaming(
-    input_path: str,
-    tokenizer: BPETokenizer,
-    output_file: str,
-    desired_MB_per_chunk: int = 200,
-) -> None:
+def encode_file_streaming(input_path: str, tokenizer: BPETokenizer, output_file: str, desired_MB_per_chunk: int = 200):
     """
     Encode a text file into a sequence of token IDs using streaming.
     This can be more memory efficient and faster for large files.
@@ -138,10 +120,7 @@ def encode_file_streaming(
         pass  # clear the output file
 
     # safe to use same tokenizer since encode() is stateless
-    chunk_tasks = [
-        (input_path, start, end, tokenizer)
-        for start, end in zip(boundaries[:-1], boundaries[1:])
-    ]
+    chunk_tasks = [(input_path, start, end, tokenizer) for start, end in zip(boundaries[:-1], boundaries[1:])]
 
     logger.info(f"Encoding file {input_path} using {desired_num_chunks} chunks...")
 
@@ -151,9 +130,7 @@ def encode_file_streaming(
     with mp.Pool(processes=processes) as pool:
         for i in range(0, len(chunk_tasks), batch_size):
             batch_tasks = chunk_tasks[i : i + batch_size]
-            logger.debug(
-                f"Processing chunks {i} to {i + len(batch_tasks)} / {len(chunk_tasks)}..."
-            )
+            logger.debug(f"Processing chunks {i} to {i + len(batch_tasks)} / {len(chunk_tasks)}...")
 
             results = pool.starmap(tokenize_chunk, batch_tasks)
             for result in results:
@@ -164,9 +141,7 @@ def encode_file_streaming(
     logger.success(f"Saved token array to {output_file}")
 
 
-def encode_file_naive(
-    input_path: str, tokenizer: BPETokenizer, output_file: str, use_memmap: bool = False
-) -> None:
+def encode_file_naive(input_path: str, tokenizer: BPETokenizer, output_file: str, use_memmap: bool = False):
 
     with open(input_path, "r", encoding="utf-8") as f:
         text = f.read()
@@ -178,9 +153,7 @@ def encode_file_naive(
     logger.info(f"Encoding completed. Saving to {output_file}...")
 
     if use_memmap:
-        token_array = np.memmap(
-            output_file, dtype=np.uint16, mode="w+", shape=(len(token_ids),)
-        )
+        token_array = np.memmap(output_file, dtype=np.uint16, mode="w+", shape=(len(token_ids),))
     else:
         token_array = np.empty(len(token_ids), dtype=np.uint16)
 
@@ -194,9 +167,7 @@ def encode_file_naive(
     logger.success(f"Saved token array to {output_file}")
 
 
-def sample_from_chunk(
-    input_path, start, end, sample_size: int, special_tokens: list[str]
-) -> list[str]:
+def sample_from_chunk(input_path, start, end, sample_size: int, special_tokens: list[str]) -> list[str]:
     """
     Sample documents from a chunk of text.
     """
@@ -216,10 +187,7 @@ def sample_from_chunk(
 
 
 def sample_from_file(
-    input_path: str,
-    sample_size: int,
-    special_tokens: list[str],
-    desired_num_chunks: int = 8,
+    input_path: str, sample_size: int, special_tokens: list[str], desired_num_chunks: int = 8
 ) -> list[str]:
     """
     Sample documents from a text file.
@@ -228,8 +196,7 @@ def sample_from_file(
         boundaries = find_chunk_boundaries(f, desired_num_chunks, b"<|endoftext|>")
 
     chunk_tasks = [
-        (input_path, start, end, sample_size, special_tokens)
-        for start, end in zip(boundaries[:-1], boundaries[1:])
+        (input_path, start, end, sample_size, special_tokens) for start, end in zip(boundaries[:-1], boundaries[1:])
     ]
     # sample from each chunk
     with mp.Pool(processes=min(desired_num_chunks, 4 * mp.cpu_count() // 5)) as pool:

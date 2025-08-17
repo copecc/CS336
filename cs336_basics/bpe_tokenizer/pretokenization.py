@@ -6,18 +6,12 @@ from collections import Counter
 from typing import BinaryIO, Iterator
 
 
-def find_chunk_boundaries(
-    file: BinaryIO,
-    desired_num_chunks: int,
-    split_special_token: bytes,
-) -> list[int]:
+def find_chunk_boundaries(file: BinaryIO, desired_num_chunks: int, split_special_token: bytes) -> list[int]:
     """
     Chunk the file into parts that can be counted independently.
     May return fewer chunks if the boundaries end up overlapping.
     """
-    assert isinstance(
-        split_special_token, bytes
-    ), "Must represent special token as a bytestring"
+    assert isinstance(split_special_token, bytes), "Must represent special token as a bytestring"
 
     # Get total file size in bytes
     file.seek(0, os.SEEK_END)
@@ -84,9 +78,7 @@ def pretokenize_text(text, special_tokens: list[str]) -> list[bytes]:
     return list(pretokenize_iter(text, special_tokens))
 
 
-def pretokenize_chunk_to_counter(
-    input_path, start, end, special_tokens: list[str]
-) -> Counter:
+def pretokenize_chunk_to_counter(input_path, start, end, special_tokens: list[str]) -> Counter:
     """
     Pre-tokenize a chunk of text into sub-word tokens, returning a token frequency counter excluding special tokens.
     """
@@ -105,9 +97,7 @@ def pretokenize_chunk_to_counter(
     return pretoken_counter
 
 
-def pretokenize_file_to_counter(
-    input_path, special_tokens: list[str], desired_num_chunks: int = 8
-) -> Counter:
+def pretokenize_file_to_counter(input_path, special_tokens: list[str], desired_num_chunks: int = 8) -> Counter:
     """
     Pre-tokenize the entire input file.
     """
@@ -116,10 +106,7 @@ def pretokenize_file_to_counter(
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, desired_num_chunks, b"<|endoftext|>")
 
-    chunk_tasks = [
-        (input_path, start, end, special_tokens)
-        for start, end in zip(boundaries[:-1], boundaries[1:])
-    ]
+    chunk_tasks = [(input_path, start, end, special_tokens) for start, end in zip(boundaries[:-1], boundaries[1:])]
 
     with mp.Pool(processes=min(desired_num_chunks, 4 * mp.cpu_count() // 5)) as pool:
         for result in pool.starmap(pretokenize_chunk_to_counter, chunk_tasks):

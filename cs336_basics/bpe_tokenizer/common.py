@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+
 # This is taken from assignment1-basics/tests/common.py
 @lru_cache
 def gpt2_bytes_to_unicode() -> dict[int, str]:
@@ -33,11 +34,7 @@ def gpt2_bytes_to_unicode() -> dict[int, str]:
     """
     # These 188 integers can used as-is, since they are not whitespace or control characters.
     # See https://www.ssec.wisc.edu/~tomw/java/unicode.html.
-    bs = (
-        list(range(ord("!"), ord("~") + 1))
-        + list(range(ord("¡"), ord("¬") + 1))
-        + list(range(ord("®"), ord("ÿ") + 1))
-    )
+    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
     cs = bs[:]
     # now get the representations of the other 68 integers that do need shifting
     # each will get mapped chr(256 + n), where n will grow from 0...67 in the loop
@@ -46,7 +43,7 @@ def gpt2_bytes_to_unicode() -> dict[int, str]:
     for b in range(2**8):
         if b not in bs:
             # If this integer isn't in our list of visually-representable
-            # charcters, then map it to the next nice character (offset by 256)
+            # characters, then map it to the next nice character (offset by 256)
             bs.append(b)
             cs.append(2**8 + n)
             n += 1

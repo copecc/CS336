@@ -115,14 +115,9 @@ class BPETrainer:
         """
         self._init_vocab()
 
-        token_counter = pretokenize_file_to_counter(
-            input_path, self.special_tokens, desired_num_chunks
-        )
+        token_counter = pretokenize_file_to_counter(input_path, self.special_tokens, desired_num_chunks)
         # convert tuples to lists for mutability and easier indexing
-        token_counter = [
-            ([bytes([b]) for b in token], count)
-            for token, count in token_counter.items()
-        ]
+        token_counter = [([bytes([b]) for b in token], count) for token, count in token_counter.items()]
 
         # keep track of pair count, (token1, token2) -> count
         pair_counter = Counter()
@@ -135,10 +130,7 @@ class BPETrainer:
                 pair_counter[pair] += count
                 pair_indexes[pair][index] += 1  # count of this pair in this token
 
-        heap = [
-            PairItem(token1, token2, count)
-            for (token1, token2), count in pair_counter.items()
-        ]
+        heap = [PairItem(token1, token2, count) for (token1, token2), count in pair_counter.items()]
         heapq.heapify(heap)  # make heap in-place
 
         merge_count = self.vocab_size - len(self.vocab) - len(self.special_tokens)
@@ -204,9 +196,7 @@ class BPETrainer:
         gpt2_byte_encoder = gpt2_bytes_to_unicode()
         # save vocabulary as JSON: {"token": id}
         vocab_dict = {}
-        print(
-            f"vocab size: {len(self.vocab.values())}, set vocab size: {len(set(self.vocab.values()))}"
-        )
+        print(f"vocab size: {len(self.vocab.values())}, set vocab size: {len(set(self.vocab.values()))}")
         for token_id, token_bytes in self.vocab.items():
             token_str = "".join(gpt2_byte_encoder[b] for b in token_bytes)
             vocab_dict[token_str] = token_id
@@ -225,10 +215,7 @@ class BPETrainer:
 
 
 def train_bpe(
-    input_path: str | os.PathLike,
-    vocab_size: int,
-    special_tokens: list[str],
-    **kwargs,
+    input_path: str | os.PathLike, vocab_size: int, special_tokens: list[str], **kwargs
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """
     Train a BPE tokenizer on the given input file.

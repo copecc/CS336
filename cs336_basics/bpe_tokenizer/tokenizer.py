@@ -4,28 +4,20 @@ import os
 from typing import Iterable, Iterator
 
 from cs336_basics.bpe_tokenizer.common import gpt2_bytes_to_unicode
-from cs336_basics.bpe_tokenizer.pretokenization import (
-    pretokenize_iter,
-    pretokenize_text,
-)
+from cs336_basics.bpe_tokenizer.pretokenization import pretokenize_iter, pretokenize_text
 
 
 class BPETokenizer:
 
     def __init__(
-        self,
-        vocab: dict[int, bytes],
-        merges: list[tuple[bytes, bytes]],
-        special_tokens: list[str] | None = None,
+        self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None
     ):
         self.vocab = vocab
         self.merges = merges
         self.special_tokens = special_tokens or []
 
         self.byte_to_token_id = {v: k for k, v in vocab.items()}
-        self.merge_rules = {
-            (token1, token2): i for i, (token1, token2) in enumerate(merges)
-        }
+        self.merge_rules = {(token1, token2): i for i, (token1, token2) in enumerate(merges)}
 
         self.cache = {}
 
@@ -109,10 +101,7 @@ class BPETokenizer:
 
     @classmethod
     def from_files(
-        cls,
-        vocab_path: str | os.PathLike,
-        merges_path: str | os.PathLike,
-        special_tokens: list[str] | None = None,
+        cls, vocab_path: str | os.PathLike, merges_path: str | os.PathLike, special_tokens: list[str] | None = None
     ) -> "BPETokenizer":
         """
         Constructs and returns a Tokenizer from a serialized vocabulary and list of merges(in the same format that your BPE training code output) and (optionally) a list of special tokens.
@@ -129,9 +118,7 @@ class BPETokenizer:
                     gpt2_bpe_merges.append(tuple(cleaned_line.split(" ")))
         # The GPT-2 tokenizer uses a remapped unicode encoding for bytes.
         vocab = {
-            gpt2_vocab_index: bytes(
-                [gpt2_byte_decoder[token] for token in gpt2_vocab_item]
-            )
+            gpt2_vocab_index: bytes([gpt2_byte_decoder[token] for token in gpt2_vocab_item])
             for gpt2_vocab_item, gpt2_vocab_index in gpt2_vocab.items()
         }
         # If any of the special tokens don't exist in the vocab, append them to the vocab.
