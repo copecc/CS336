@@ -1,3 +1,5 @@
+import os
+import typing
 import torch
 
 from einops import einsum, rearrange
@@ -107,3 +109,63 @@ def cross_entropy(inputs: torch.tensor, targets: torch.tensor) -> torch.tensor:
     target_log_probs = log_softmax[batch_indices, targets]
 
     return -target_log_probs.mean()
+
+
+def top_p_sampling(
+    logits: Float[Tensor, " ... vocab_size"], p: float, num_samples: int
+) -> Float[Tensor, " ... vocab_size"]:
+    """
+    Apply top-p (nucleus) sampling to logits.
+
+    This function returns the next token(s) sampled from the distribution.
+    """
+    sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+    sorted_logits_probabilities = torch.softmax(sorted_logits, dim=-1)
+    cumulative_probs = torch.cumsum(sorted_logits_probabilities, dim=-1)
+
+    # Create a mask for the top p% of probabilities
+    mask = cumulative_probs <= p
+    mask[..., 1:] = mask[..., :-1].clone()  # Shift mask to include all but last element
+    mask[..., 0] = True  # Always keep the first element
+    # Set logits probabilities below the threshold to 0
+    sorted_logits_probabilities.masked_fill_(~mask, 0.0)
+    # Scatter the masked probabilities back to the original shape
+    logits_probabilities = sorted_logits_probabilities.new_zeros(logits.shape)
+    logits_probabilities.scatter_(-1, sorted_indices, sorted_logits_probabilities)
+
+    next_token = torch.multinomial(logits_probabilities, num_samples)
+    return next_token
+
+
+def save_checkpoint(
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    iteration: int,
+    out: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
+):
+    """
+    Save the model and optimizer state to a checkpoint file.
+    """
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "iteration": iteration,
+        },
+        out,
+    )
+
+
+def load_checkpoint(
+    src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+) -> int:
+    """
+    Load the model and optimizer state from a checkpoint file.
+    Returns the iteration number.
+    """
+    checkpoint = torch.load(src)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    return checkpoint["iteration"]

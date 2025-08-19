@@ -16,6 +16,8 @@ from cs336_basics.transformer.nn_utils import (
     scaled_dot_product_attention,
     silu,
     softmax,
+    load_checkpoint,
+    save_checkpoint,
 )
 from cs336_basics.transformer.model import (
     CausalMultiHeadSelfAttention,
@@ -32,7 +34,7 @@ from cs336_basics.transformer.optimizer import (
     gradient_clipping,
     lr_cosine_schedule,
 )
-from cs336_basics.transformer.trainer import get_batch, load_checkpoint, save_checkpoint
+from cs336_basics.transformer.data import get_batch
 
 
 def run_linear(

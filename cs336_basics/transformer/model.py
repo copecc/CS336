@@ -5,7 +5,7 @@ from torch import Tensor, nn
 from einops import einsum, rearrange, reduce
 from jaxtyping import Float, Bool, Int
 
-from cs336_basics.transformer.nn_utils import silu, scaled_dot_product_attention
+from cs336_basics.transformer.nn_utils import silu, scaled_dot_product_attention, top_p_sampling
 
 
 class Linear(nn.Module):
@@ -76,7 +76,7 @@ class RMSNorm(nn.Module):
         RMSNorm (Root Mean Square Layer Normalization) normalizes the input tensor and applies a learnable scaling parameter to improve training stability.
 
         Args:
-            d_model (int): The size of the model dimension.
+            d_model (int): The dimensionality of the RMSNorm input.
             eps (float): A value added to the denominator for numerical stability.
             device (torch.device): The device to create the layer on.
             dtype (torch.dtype): The data type of the layer's parameters.
@@ -108,8 +108,8 @@ class SwiGLUFeedForward(nn.Module):
         Feed-forward network using the SwiGLU activation function, consisting of multiple linear transformations and a gating mechanism.
 
         Args:
-            d_model (int): The size of the model dimension.
-            d_ff (int): The size of the feed-forward dimension.
+            d_model (int): Dimensionality of the feedforward input and output.
+            d_ff (int): Dimensionality of the up-project happening internally to your swiglu.
             device (torch.device): The device to create the layer on.
             dtype (torch.dtype): The data type of the layer's parameters.
         """
@@ -142,7 +142,7 @@ class RotaryPositionalEmbedding(nn.Module):
         Args:
             theta (float): The rotation angle.
             d_k (int): The dimension of the key vectors.
-            max_seq_len (int): The maximum sequence length.
+            max_seq_len (int): Maximum sequence length to pre-cache if your implementation does that.
             device (torch.device): The device to create the layer on.
         """
         super().__init__()
@@ -201,12 +201,12 @@ class CausalMultiHeadSelfAttention(nn.Module):
 
         This module projects the input into queries, keys, and values, applies multi-head self-attention with a causal mask (preventing each position from attending to future positions), and supports rotary positional embeddings for improved relative position encoding. The output is projected back to the model dimension.
 
-            Args:
-                d_model (int): Dimensionality of the input features.
-                num_heads (int): Number of attention heads.
-                rope (RotaryPositionalEmbedding, optional): Rotary positional embedding module.
-                device (torch.device): Device to create the layer on.
-                dtype (torch.dtype): Data type of the layer parameters.
+        Args:
+            d_model (int): Hidden size of the model (the main feature dimension used throughout the Transformer).
+            num_heads (int): Number of heads to use in multi-headed attention.
+            rope (RotaryPositionalEmbedding, optional): Rotary positional embedding module.
+            device (torch.device): The device to create the layer on.
+            dtype (torch.dtype): The data type of the layer's parameters.
         """
         super().__init__()
 
@@ -272,13 +272,13 @@ class TransformerBlock(nn.Module):
         The basic Transformer block, composed of pre-layer normalization, multi-head self-attention, and a SwiGLU feed-forward network, with residual connections.
 
         Args:
-            d_model (int): Dimensionality of the input features.
+            d_model (int): The dimensionality of the Transformer block input.
             num_heads (int): Number of attention heads.
             d_ff (int, optional): Dimensionality of the feedforward layer.
             theta (float, optional): Rotary embedding parameter.
             max_seq_len (int, optional): Maximum sequence length.
-            device (torch.device): Device to create the layer on.
-            dtype (torch.dtype): Data type of the layer parameters.
+            device (torch.device): The device to create the layer on.
+            dtype (torch.dtype): The data type of the layer's parameters.
         """
         super().__init__()
 
@@ -315,8 +315,21 @@ class TransformerLM(nn.Module):
     ):
         """
         Transformer-based language model that stacks multiple Transformer blocks, takes token IDs as input, and outputs logits for each token position.
+
+        Args:
+            vocab_size (int): Size of the vocabulary.
+            context_length (int): Maximum context length for input sequences.
+            num_layers (int): Number of Transformer layers.
+            d_model (int): Hidden size of the model (the main feature dimension used throughout the Transformer).
+            num_heads (int): Number of attention heads.
+            d_ff (int, optional): Dimensionality of the feedforward layer.
+            theta (float, optional): Rotary embedding parameter.
+            device (torch.device, optional): The device to create the layer on.
+            dtype (torch.dtype, optional): The data type of the layer's parameters.
         """
         super().__init__()
+
+        self.context_length = context_length
 
         self.token_embeddings = Embedding(vocab_size, d_model, device, dtype)
         self.layers = nn.ModuleList(
@@ -339,3 +352,70 @@ class TransformerLM(nn.Module):
 
         x = self.ln_final(x)
         return self.lm_head(x)
+
+    def get_num_parameters(self, non_embedding: bool = True) -> int:
+        """
+        Returns the total number of trainable parameters in the model.
+
+        If non_embedding is True (default), the returned parameter count excludes the last layer (output layer).
+        This is because, in many research papers and model reports, the output layer parameters are often reported separately from the rest of the model
+        (sometimes embeddings are *shared* or tied with the embedding layer).
+        """
+        num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        # Exclude output layer parameters
+        if non_embedding:
+            num_params -= self.lm_head.weight.numel()
+        return num_params
+
+    @torch.no_grad()
+    def generate(
+        self,
+        x: Int[Tensor, " ... sequence_length"],
+        max_new_tokens: int = 2048,
+        temperature: float = 1.0,
+        top_p: float = None,
+        top_k: int = None,
+        eos_token_id: int = None,
+    ) -> Int[Tensor, " ... max_new_tokens"]:
+        """
+        Generates new tokens from the model given an input sequence.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (1, sequence_length) or (sequence_length, ) containing token IDs.
+            max_new_tokens (int): Maximum number of new tokens to generate.
+            temperature (float): Controls randomness in sampling. Higher values produce more random outputs.
+            top_p (float, optional): If specified, limits the sampling to the top p cumulative probability.
+            top_k (int, optional): If specified, limits the sampling to the top k logits.
+            eos_token_id (int, optional): If specified, generation stops when this token is produced.
+
+        Returns:
+            torch.Tensor: Tensor of shape (1, max_new_tokens) containing generated token IDs.
+        """
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+
+        original_length = x.shape[1]
+        for _ in range(max_new_tokens):
+            x = x[:, -self.context_length :] if x.shape[1] > self.context_length else x
+            logits = self.forward(x)
+            next_token_logits = logits[:, -1, :] / temperature
+
+            if top_p is not None:  # Apply top-p (nucleus) sampling
+                next_token = top_p_sampling(next_token_logits, p=top_p, num_samples=1)
+            else:
+                if top_k is not None:  # Apply top-k sampling
+                    top_k_values, _ = torch.topk(next_token_logits, min(top_k, next_token_logits.size(-1)))
+                    threshold = top_k_values[:, -1]
+                    mask = next_token_logits < threshold
+                    next_token_logits.masked_fill_(mask, float("-inf"))
+
+                next_token_probabilities = torch.softmax(next_token_logits, dim=-1)
+                next_token = torch.multinomial(next_token_probabilities, num_samples=1)
+
+            x = torch.cat((x, next_token), dim=1)
+            # Check for end-of-sequence token
+            if eos_token_id is not None and (next_token == eos_token_id).any():
+                break
+
+        new_tokens = x[:, original_length:]
+        return new_tokens
