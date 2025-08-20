@@ -1,0 +1,53 @@
+# Transformer Language Model Training Configuration
+
+model:
+  vocab_size: 10000         # Vocabulary size
+  context_length: 256       # Context length
+  num_layers: 4             # Number of transformer layers
+  d_model: 512              # Model dimension
+  num_heads: 16             # Number of attention heads
+  d_ff: 1344                # Feed-forward dimension
+  theta: 10000.0            # RoPE theta parameter
+
+device: cuda               # Device (cuda/cpu/mps/auto)
+dtype: float32             # Data type (float32/float16/bfloat16)
+
+optimizer:
+  lr: 0.001                 # Learning rate
+  beta1: 0.9                # Adam beta1
+  beta2: 0.999              # Adam beta2
+  eps: 1.0e-8               # Adam epsilon
+  weight_decay: 0.01        # Weight decay
+
+scheduler:
+  min_lr: 1.0e-5            # Final learning rate
+  warmup_steps: 1000        # Warmup steps for learning rate
+  annealing_steps: 50000    # Total annealing steps
+
+training:
+  batch_size: 32              # Batch size
+  num_epochs: 1               # Number of training epochs
+  total_steps: null           # Total number of training iterations
+  max_grad_norm: 1.0          # Gradient clipping threshold
+  valid_interval: 100         # Validation interval
+  valid_num_batches: 16       # Number of validation batches
+  save_interval: 1000         # Checkpoint save interval
+  log_interval: 10            # Logging interval
+  desired_loss: 1.45          # Desired loss for early stopping, 1.45 for cuda, 2.0 for mps
+  desired_tokens: 327680000   # Total number of tokens
+
+data:
+  train_data: data/TinyStoriesV2-GPT4-train_encoded_10k.npy    # Path to training data
+  valid_data: data/TinyStoriesV2-GPT4-valid_encoded_10k.npy    # Path to validation data
+  vocab_path: data/TinyStoriesV2-GPT4_vocab.json               # Path to vocabulary file
+  merge_path: data/TinyStoriesV2-GPT4_merges.txt               # Path to merge file
+  special_tokens: ["<|endoftext|>"]
+
+checkpoint:
+  ckpt_path: null               # Path to checkpoint to resume from
+  ckpt_dir: ckpt                # Directory to save checkpoints
+
+wandb:
+  project_name: cs336-assignment1   # Wandb project name
+  experiment_name: null             # Wandb experiment name
+  disable_wandb: false              # Disable wandb logging
