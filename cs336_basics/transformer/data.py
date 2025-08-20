@@ -19,9 +19,9 @@ def get_batch(
     # Create numpy arrays first, then convert to tensors
     x_np = dataset[input_indices]
     y_np = dataset[target_indices]
-    # Create tensors from numpy arrays, casting to long for token indices
-    x = torch.from_numpy(x_np).long()
-    y = torch.from_numpy(y_np).long()
+    # Create tensors from numpy arrays, using astype instead of long is for compatibility on torch1.x
+    x = torch.from_numpy(x_np.astype(np.int64))
+    y = torch.from_numpy(y_np.astype(np.int64))
     if "cuda" in device:
         x = x.pin_memory().to(device, non_blocking=True)
         y = y.pin_memory().to(device, non_blocking=True)
