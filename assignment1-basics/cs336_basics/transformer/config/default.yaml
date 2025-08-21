@@ -35,6 +35,7 @@ training:
   log_interval: 10            # Logging interval
   desired_loss: 1.45          # Desired loss for early stopping, 1.45 for cuda, 2.0 for mps
   desired_tokens: 327680000   # Total number of tokens
+  training_minutes: null      # Total training time in minutes
 
 data:
   train_data: data/TinyStoriesV2-GPT4-train_encoded_10k.npy    # Path to training data

@@ -90,6 +90,7 @@ class RMSNorm(nn.Module):
         """
         Normalizes the input tensor using RMS normalization and scales it.
         """
+        # return x  # ablation for removing rms
         in_dtype = x.dtype
 
         x = x.to(torch.float32)
@@ -134,6 +135,38 @@ class SwiGLUFeedForward(nn.Module):
         return f"d_model={self.w1.in_features}, d_ff={self.w1.out_features}"
 
 
+class SiLUFeedForward(nn.Module):
+
+    def __init__(self, d_model: int, d_ff: int = None, device: torch.device = None, dtype: torch.dtype = None):
+        """
+        Feed-forward network using the SiLU activation function, consisting of multiple linear transformations and a gating mechanism.
+
+        Args:
+            d_model (int): Dimensionality of the feedforward input and output.
+            d_ff (int): Dimensionality of the up-project happening internally to your silu.
+            device (torch.device): The device to create the layer on.
+            dtype (torch.dtype): The data type of the layer's parameters.
+        """
+        super().__init__()
+
+        if d_ff is None:
+            # set dff to approximately 4 * d_model and round up to nearest multiple of 64
+            target_d_ff = 4 * d_model
+            d_ff = math.ceil(target_d_ff / 64) * 64
+
+        self.w1 = Linear(d_model, d_ff, device=device, dtype=dtype)
+        self.w2 = Linear(d_ff, d_model, device=device, dtype=dtype)
+
+    def forward(self, x: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
+        """
+        Applies two linear transformations and a SiLU activation to the input, then projects back to the model dimension.
+        """
+        return self.w2(silu(self.w1(x)))
+
+    def extra_repr(self) -> str:
+        return f"d_model={self.w1.in_features}, d_ff={self.w1.out_features}"
+
+
 class RotaryPositionalEmbedding(nn.Module):
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device: torch.device = None):
         """
@@ -166,6 +199,8 @@ class RotaryPositionalEmbedding(nn.Module):
         """
         Applies rotary positional encoding to the input tensor based on token positions.
         """
+        # return x # ablation: NoPE
+        
         # get the cosine and sine values for the current token positions
         # (..., seq_len, d_k//2)
         cos = self.cos_cached[token_positions]
@@ -288,6 +323,7 @@ class TransformerBlock(nn.Module):
         self.attn = CausalMultiHeadSelfAttention(d_model, num_heads, rope, device=device, dtype=dtype)
 
         self.ln2 = RMSNorm(d_model, device=device, dtype=dtype)
+        # self.ffn = SiLUFeedForward(d_model, d_ff, device=device, dtype=dtype)
         self.ffn = SwiGLUFeedForward(d_model, d_ff, device=device, dtype=dtype)
 
     def forward(
@@ -296,6 +332,11 @@ class TransformerBlock(nn.Module):
         """
         Applies layer normalization, self-attention, and feed-forward network with residual connections (pre-norm).
         """
+        # post-norm
+        # x = self.ln1(x + self.attn(x))
+        # return self.ln2(x + self.ffn(x))
+
+        # pre-norm
         x = x + self.attn(self.ln1(x))
         return x + self.ffn(self.ln2(x))
 

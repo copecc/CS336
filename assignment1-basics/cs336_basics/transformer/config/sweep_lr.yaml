@@ -1,0 +1,21 @@
+method: grid
+metric:
+  name: val_loss
+  goal: minimize
+parameters:
+  lr:
+    values: [0.001, 0.005, 0.01, 0.1, 1]
+program: cs336_basics/transformer/trainer.py
+command:
+  - python3
+  - ${program}
+  - --config
+  - cs336_basics/transformer/config/default.yaml
+  - --total_steps
+  - 5000
+  - --warmup_steps
+  - 500
+  - --annealing_steps
+  - 5000
+  - --training_minutes
+  - 30
