@@ -32,7 +32,6 @@ class FlashAttention(torch.autograd.Function):
 
         # Launch kernel
         flash_attention_forward_kernel[(triton.cdiv(Nq, Bq), batch_size)](
-            # fmt:off
             Q, K, V, O, L, mask,
             Q.stride(0), Q.stride(1), Q.stride(2),
             K.stride(0), K.stride(1), K.stride(2),
@@ -43,7 +42,7 @@ class FlashAttention(torch.autograd.Function):
             Nq, Nk, 1 / math.sqrt(d),
             D=d, Q_TILE_SIZE=Bq, K_TILE_SIZE=Bk,
             IS_CAUSAL=is_causal,
-        )
+        )# fmt: skip
 
         ctx.save_for_backward(L, Q, K, V, O)
         ctx.Q_TILE_SIZE = Bq
@@ -52,8 +51,6 @@ class FlashAttention(torch.autograd.Function):
         ctx.mask = mask
 
         return O
-
-    # fmt:on
 
     @staticmethod
     def backward(ctx, dO: Float[Tensor, " batch_size Nq d"]):
@@ -75,7 +72,6 @@ class FlashAttention(torch.autograd.Function):
 
         # Launch kernel
         flash_attention_backward_kernel[(triton.cdiv(Nk, Bk), batch_size)](
-            # fmt:off
             Q, K, V, D, L, dO, dQ, dK, dV, mask,
             Q.stride(0), Q.stride(1), Q.stride(2),
             K.stride(0), K.stride(1), K.stride(2),
@@ -90,9 +86,6 @@ class FlashAttention(torch.autograd.Function):
             Nq, Nk, 1 / math.sqrt(d),
             D=d, Q_TILE_SIZE=Bq, K_TILE_SIZE=Bk,
             IS_CAUSAL=is_causal,
-        )
+        )# fmt: skip
 
         return dQ, dK, dV, None
-
-
-# fmt:on

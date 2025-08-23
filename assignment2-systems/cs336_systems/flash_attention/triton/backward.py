@@ -1,44 +1,35 @@
-import math
-import torch
-import torch.nn.functional as F
 import triton
 import triton.language as tl
-
-from torch import Tensor
-from jaxtyping import Float, Bool, Int
-
-# fmt: off
-# I dont want to mess up the format below...
 
 
 @triton.jit
 def flash_attention_backward_kernel(
     Q_ptr, K_ptr, V_ptr, D_ptr, L_ptr, dO_ptr, dQ_ptr, dK_ptr, dV_ptr, Mask_ptr,  # pointers
-    stride_qb, stride_qq, stride_qd,        # strides over Q
-    stride_kb, stride_kk, stride_kd,        # strides over K
-    stride_vb, stride_vk, stride_vd,        # strides over V
-    stride_db, stride_dq,                   # strides over D
-    stride_lb, stride_lq,                   # strides over L
-    stride_dob, stride_doq, stride_dod,     # strides over dO
-    stride_dqb, stride_dqq, stride_dqd,     # strides over dQ
-    stride_dkb, stride_dkk, stride_dkd,     # strides over dK
-    stride_dvb, stride_dvk, stride_dvd,     # strides over dV
-    stride_maskq, stride_maskk,             # strides over mask
-    N_QUERIES, N_KEYS, scale,               # shape(Nq, Nk) and scaling(usually 1/sqrt(D))
+    stride_qb, stride_qq, stride_qd,    # strides over Q
+    stride_kb, stride_kk, stride_kd,    # strides over K
+    stride_vb, stride_vk, stride_vd,    # strides over V
+    stride_db, stride_dq,               # strides over D
+    stride_lb, stride_lq,               # strides over L
+    stride_dob, stride_doq, stride_dod, # strides over dO
+    stride_dqb, stride_dqq, stride_dqd, # strides over dQ
+    stride_dkb, stride_dkk, stride_dkd, # strides over dK
+    stride_dvb, stride_dvk, stride_dvd, # strides over dV
+    stride_maskq, stride_maskk,         # strides over mask
+    N_QUERIES, N_KEYS, scale,           # shape(Nq, Nk) and scaling(usually 1/sqrt(D))
     D: tl.constexpr, Q_TILE_SIZE: tl.constexpr, K_TILE_SIZE: tl.constexpr, # d, Bq, Bk
     IS_CAUSAL: tl.constexpr,            # is_causal flag
-):
+):# fmt: skip
     # Program indices
     key_tile_index = tl.program_id(0)
     batch_index = tl.program_id(1)
 
     Q_block_ptr = tl.make_block_ptr(
-        Q_ptr + batch_index * stride_qb,              # Q[batch_index]
-        shape=(N_QUERIES, D),                         # Q[batch_index].shape == (N_QUERIES[Nq], D)
-        strides=(stride_qq, stride_qd),               # Q[batch_index] layout
-        offsets=(0, 0),                               # Q[batch_index][query_tile_index]
-        block_shape=(Q_TILE_SIZE, D),                 # Qi.shape == (Q_TILE_SIZE[Bq], D)
-        order=(1, 0),                                 # traverse over D first
+        Q_ptr + batch_index * stride_qb,  # Q[batch_index]
+        shape=(N_QUERIES, D),  # Q[batch_index].shape == (N_QUERIES[Nq], D)
+        strides=(stride_qq, stride_qd),  # Q[batch_index] layout
+        offsets=(0, 0),  # Q[batch_index][query_tile_index]
+        block_shape=(Q_TILE_SIZE, D),  # Qi.shape == (Q_TILE_SIZE[Bq], D)
+        order=(1, 0),  # traverse over D first
     )
 
     K_block_ptr = tl.make_block_ptr(
@@ -47,7 +38,7 @@ def flash_attention_backward_kernel(
         strides=(stride_kk, stride_kd),
         offsets=(key_tile_index * K_TILE_SIZE, 0),
         block_shape=(K_TILE_SIZE, D),
-        order=(1, 0)
+        order=(1, 0),
     )
 
     V_block_ptr = tl.make_block_ptr(
@@ -79,23 +70,23 @@ def flash_attention_backward_kernel(
 
     dO_block_ptr = tl.make_block_ptr(
         dO_ptr + batch_index * stride_dob,
-        shape=(N_QUERIES,D),
+        shape=(N_QUERIES, D),
         strides=(stride_doq, stride_dod),
-        offsets=(0,0),
-        block_shape=(Q_TILE_SIZE,D),
-        order=(1,0)
+        offsets=(0, 0),
+        block_shape=(Q_TILE_SIZE, D),
+        order=(1, 0),
     )
 
     if IS_CAUSAL:
-       Mask_block_ptr = tl.make_block_ptr(
-          Mask_ptr,
-          shape=(N_QUERIES, N_KEYS),
-          strides=(stride_maskq, stride_maskk),
-          offsets=(0, key_tile_index * K_TILE_SIZE),
-          block_shape=(Q_TILE_SIZE, K_TILE_SIZE),
-          order=(1, 0),
-      )
-    
+        Mask_block_ptr = tl.make_block_ptr(
+            Mask_ptr,
+            shape=(N_QUERIES, N_KEYS),
+            strides=(stride_maskq, stride_maskk),
+            offsets=(0, key_tile_index * K_TILE_SIZE),
+            block_shape=(Q_TILE_SIZE, K_TILE_SIZE),
+            order=(1, 0),
+        )
+
     # Load K(j), V(j) from global memory
     K_j = tl.load(K_block_ptr, boundary_check=(0,), padding_option="zero")
     V_j = tl.load(V_block_ptr, boundary_check=(0,), padding_option="zero")
@@ -104,7 +95,7 @@ def flash_attention_backward_kernel(
     dK_j = tl.zeros_like(K_j)
     dV_j = tl.zeros_like(V_j)
 
-    Tq = tl.cdiv(N_QUERIES, Q_TILE_SIZE) # Number of query tiles
+    Tq = tl.cdiv(N_QUERIES, Q_TILE_SIZE)  # Number of query tiles
 
     # Loop over the query tiles
     for query_tile_index in range(Tq):
@@ -113,7 +104,7 @@ def flash_attention_backward_kernel(
         D_i = tl.load(D_block_ptr, boundary_check=(0,), padding_option="zero")
         L_i = tl.load(L_block_ptr, boundary_check=(0,), padding_option="zero")
         dO_i = tl.load(dO_block_ptr, boundary_check=(0,), padding_option="zero")
-        
+
         if IS_CAUSAL:
             mask_i = tl.load(Mask_block_ptr, boundary_check=(0,), padding_option="zero")
 
@@ -134,7 +125,7 @@ def flash_attention_backward_kernel(
         # !!! Must be atomic for correctness!
         dQ_i_ptr = dQ_ptr + batch_index * stride_dqb + query_tile_index * Q_TILE_SIZE * stride_dqq
         offset_row, offset_col = tl.arange(0, Q_TILE_SIZE), tl.arange(0, D)
-        offset_linear = offset_row[:, None] * D + offset_col[None, :] # generate indexes for dQ_i
+        offset_linear = offset_row[:, None] * D + offset_col[None, :]  # generate indexes for dQ_i
         # boundary check
         mask_dQ_i = query_tile_index * Q_TILE_SIZE + offset_row[:, None] < N_QUERIES
         # atomic_add require pointer (Block of dtype=triton.PointerDType) , val (Block of dtype=pointer.dtype.element_ty)
@@ -153,23 +144,21 @@ def flash_attention_backward_kernel(
     # output gradients
     dK_block_ptr = tl.make_block_ptr(
         dK_ptr + batch_index * stride_dkb,
-        shape=(N_KEYS,D),
+        shape=(N_KEYS, D),
         strides=(stride_dkk, stride_dkd),
         offsets=(key_tile_index * K_TILE_SIZE, 0),
-        block_shape=(K_TILE_SIZE,D),
-        order=(1,0)
+        block_shape=(K_TILE_SIZE, D),
+        order=(1, 0),
     )
 
     dV_block_ptr = tl.make_block_ptr(
         dV_ptr + batch_index * stride_dvb,
-        shape=(N_KEYS,D),
+        shape=(N_KEYS, D),
         strides=(stride_dvk, stride_dvd),
         offsets=(key_tile_index * K_TILE_SIZE, 0),
-        block_shape=(K_TILE_SIZE,D),
-        order=(1,0)
+        block_shape=(K_TILE_SIZE, D),
+        order=(1, 0),
     )
 
-    tl.store(dK_block_ptr, dK_j.to(dK_block_ptr.type.element_ty), boundary_check=(0,1))
-    tl.store(dV_block_ptr, dV_j.to(dV_block_ptr.type.element_ty), boundary_check=(0,1))
-
-# fmt:on
+    tl.store(dK_block_ptr, dK_j.to(dK_block_ptr.type.element_ty), boundary_check=(0, 1))
+    tl.store(dV_block_ptr, dV_j.to(dV_block_ptr.type.element_ty), boundary_check=(0, 1))

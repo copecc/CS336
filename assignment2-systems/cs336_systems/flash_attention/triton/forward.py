@@ -1,14 +1,5 @@
-import math
-import torch
-import torch.nn.functional as F
 import triton
 import triton.language as tl
-
-from torch import Tensor
-from jaxtyping import Float, Bool, Int
-
-# fmt: off
-# I dont want to mess up the format below...
 
 
 @triton.jit
@@ -23,7 +14,7 @@ def flash_attention_forward_kernel(
     N_QUERIES, N_KEYS, scale,           # shape(Nq, Nk) and scaling(usually 1/sqrt(D))
     D: tl.constexpr, Q_TILE_SIZE: tl.constexpr, K_TILE_SIZE: tl.constexpr, # d, Bq, Bk
     IS_CAUSAL: tl.constexpr,            # is_causal flag
-):
+): # fmt: skip
     # Program indices
     query_tile_index = tl.program_id(0)
     batch_index = tl.program_id(1)
@@ -31,12 +22,12 @@ def flash_attention_forward_kernel(
     # Offset each pointer with the corresponding batch index
     # multiplied with the batch stride for each tensor
     Q_block_ptr = tl.make_block_ptr(
-        Q_ptr + batch_index * stride_qb,              # Q[batch_index]
-        shape=(N_QUERIES, D),                         # Q[batch_index].shape == (N_QUERIES[Nq], D)
-        strides=(stride_qq, stride_qd),               # Q[batch_index] layout
+        Q_ptr + batch_index * stride_qb,  # Q[batch_index]
+        shape=(N_QUERIES, D),  # Q[batch_index].shape == (N_QUERIES[Nq], D)
+        strides=(stride_qq, stride_qd),  # Q[batch_index] layout
         offsets=(query_tile_index * Q_TILE_SIZE, 0),  # Q[batch_index][query_tile_index]
-        block_shape=(Q_TILE_SIZE, D),                 # Qi.shape == (Q_TILE_SIZE[Bq], D)
-        order=(1, 0),                                 # traverse over D first
+        block_shape=(Q_TILE_SIZE, D),  # Qi.shape == (Q_TILE_SIZE[Bq], D)
+        order=(1, 0),  # traverse over D first
     )
 
     K_block_ptr = tl.make_block_ptr(
@@ -58,14 +49,14 @@ def flash_attention_forward_kernel(
     )
 
     if IS_CAUSAL:
-      Mask_block_ptr = tl.make_block_ptr(
-          Mask_ptr,
-          shape=(N_QUERIES, N_KEYS),
-          strides=(stride_maskq, stride_maskk),
-          offsets=(query_tile_index * Q_TILE_SIZE, 0),
-          block_shape=(Q_TILE_SIZE, K_TILE_SIZE),
-          order=(1, 0),
-      )
+        Mask_block_ptr = tl.make_block_ptr(
+            Mask_ptr,
+            shape=(N_QUERIES, N_KEYS),
+            strides=(stride_maskq, stride_maskk),
+            offsets=(query_tile_index * Q_TILE_SIZE, 0),
+            block_shape=(Q_TILE_SIZE, K_TILE_SIZE),
+            order=(1, 0),
+        )
 
     # Load Qi from global memory
     Q_i = tl.load(Q_block_ptr, boundary_check=(0,), padding_option="zero")
@@ -73,7 +64,7 @@ def flash_attention_forward_kernel(
     # Initialize the output and logsumexp
     O_i = tl.zeros((Q_TILE_SIZE, D), dtype=tl.float32)
     l_i = tl.zeros((Q_TILE_SIZE,), dtype=tl.float32)
-    m_ij = tl.full((Q_TILE_SIZE,), float('-inf'), dtype=tl.float32)
+    m_ij = tl.full((Q_TILE_SIZE,), float("-inf"), dtype=tl.float32)
 
     Tk = tl.cdiv(N_KEYS, K_TILE_SIZE)  # number of key/value tiles
 
@@ -83,13 +74,13 @@ def flash_attention_forward_kernel(
         K_j = tl.load(K_block_ptr, boundary_check=(0,), padding_option="zero")
         V_j = tl.load(V_block_ptr, boundary_check=(0,), padding_option="zero")
         if IS_CAUSAL:
-          mask_j = tl.load(Mask_block_ptr, boundary_check=(0,1), padding_option="zero")
+            mask_j = tl.load(Mask_block_ptr, boundary_check=(0, 1), padding_option="zero")
 
         # Compute tile of pre-softmax attention scores: S_i^{(j)} = Q_i (K_j)^T / sqrt(d) ∈ R^{Bq × Bk}
         # setting allow_tf32=False to avoid crashing on old GPUs
-        S_i = tl.dot(Q_i, tl.trans(K_j), allow_tf32=False) * scale # scale = 1/sqrt(D)
+        S_i = tl.dot(Q_i, tl.trans(K_j), allow_tf32=False) * scale  # scale = 1/sqrt(D)
         if IS_CAUSAL:
-          S_i = S_i + mask_j.to(S_i.dtype)
+            S_i = S_i + mask_j.to(S_i.dtype)
 
         # This can be optimized further by using alpha and beta(only one `l`)
         # m_i^{(j)} = max(m_i^{(j-1)}, rowmax(S_i^{(j)})) ∈ R^{Bq}
@@ -107,7 +98,7 @@ def flash_attention_forward_kernel(
         K_block_ptr = tl.advance(K_block_ptr, (K_TILE_SIZE, 0))
         V_block_ptr = tl.advance(V_block_ptr, (K_TILE_SIZE, 0))
         if IS_CAUSAL:
-          Mask_block_ptr = tl.advance(Mask_block_ptr, (0, K_TILE_SIZE))
+            Mask_block_ptr = tl.advance(Mask_block_ptr, (0, K_TILE_SIZE))
 
     # O_i = diag(l_i^{(T_k)})^{-1} O_i^{(T_k)}
     O_i = O_i / l_i[:, None]
@@ -134,5 +125,3 @@ def flash_attention_forward_kernel(
 
     tl.store(O_block_ptr, O_i.to(O_block_ptr.type.element_ty), boundary_check=(0, 1))
     tl.store(L_block_ptr, L_i.to(L_block_ptr.type.element_ty), boundary_check=(0,))
-
-# fmt:on
