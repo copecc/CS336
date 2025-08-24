@@ -104,7 +104,9 @@ class BPETokenizer:
         cls, vocab_path: str | os.PathLike, merges_path: str | os.PathLike, special_tokens: list[str] | None = None
     ) -> "BPETokenizer":
         """
-        Constructs and returns a Tokenizer from a serialized vocabulary and list of merges(in the same format that your BPE training code output) and (optionally) a list of special tokens.
+        Constructs and returns a Tokenizer from a serialized vocabulary and list of merges(in the same format that your
+        BPE training code output) and (optionally) a list of special tokens.
+
         This is taken from assignment1-basics/tests/test_tokenizer.py:get_tokenizer_from_vocab_merges_path()
         """
         gpt2_byte_decoder = {v: k for k, v in gpt2_bytes_to_unicode().items()}

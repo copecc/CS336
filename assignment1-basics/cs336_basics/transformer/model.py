@@ -12,7 +12,8 @@ class Linear(nn.Module):
 
     def __init__(self, in_features: int, out_features: int, device: torch.device = None, dtype: torch.dtype = None):
         """
-        Linear layer that performs matrix multiplication with learnable weights, initialized using a truncated normal distribution.
+        Linear layer that performs matrix multiplication with learnable weights, initialized using a truncated normal
+        distribution.
 
         Args:
             in_features (int): The size of the input features.
@@ -61,6 +62,7 @@ class Embedding(nn.Module):
     def forward(self, token_ids: Int[Tensor, " ..."]) -> Float[Tensor, " ... d_model"]:
         """
         Looks up and returns the embedding vectors for the provided token IDs.
+
         Select the embedding vector for each token ID by indexing into an embedding matrix.
         """
         return self.weight[token_ids]
@@ -73,7 +75,8 @@ class RMSNorm(nn.Module):
 
     def __init__(self, d_model: int, eps: float = 1e-5, device: torch.device = None, dtype: torch.dtype = None):
         """
-        RMSNorm (Root Mean Square Layer Normalization) normalizes the input tensor and applies a learnable scaling parameter to improve training stability.
+        RMSNorm (Root Mean Square Layer Normalization) normalizes the input tensor and applies a learnable scaling
+        parameter to improve training stability.
 
         Args:
             d_model (int): The dimensionality of the RMSNorm input.
@@ -106,7 +109,8 @@ class SwiGLUFeedForward(nn.Module):
 
     def __init__(self, d_model: int, d_ff: int = None, device: torch.device = None, dtype: torch.dtype = None):
         """
-        Feed-forward network using the SwiGLU activation function, consisting of multiple linear transformations and a gating mechanism.
+        Feed-forward network using the SwiGLU activation function, consisting of multiple linear transformations and a
+        gating mechanism.
 
         Args:
             d_model (int): Dimensionality of the feedforward input and output.
@@ -127,7 +131,8 @@ class SwiGLUFeedForward(nn.Module):
 
     def forward(self, x: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         """
-        Applies two linear transformations and a SwiGLU activation to the input, then projects back to the model dimension.
+        Applies two linear transformations and a SwiGLU activation to the input, then projects back to the model
+        dimension.
         """
         return self.w2(silu(self.w1(x)) * self.w3(x))
 
@@ -139,7 +144,8 @@ class SiLUFeedForward(nn.Module):
 
     def __init__(self, d_model: int, d_ff: int = None, device: torch.device = None, dtype: torch.dtype = None):
         """
-        Feed-forward network using the SiLU activation function, consisting of multiple linear transformations and a gating mechanism.
+        Feed-forward network using the SiLU activation function, consisting of multiple linear transformations and a
+        gating mechanism.
 
         Args:
             d_model (int): Dimensionality of the feedforward input and output.
@@ -159,7 +165,8 @@ class SiLUFeedForward(nn.Module):
 
     def forward(self, x: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         """
-        Applies two linear transformations and a SiLU activation to the input, then projects back to the model dimension.
+        Applies two linear transformations and a SiLU activation to the input, then projects back to the model
+        dimension.
         """
         return self.w2(silu(self.w1(x)))
 
@@ -200,7 +207,7 @@ class RotaryPositionalEmbedding(nn.Module):
         Applies rotary positional encoding to the input tensor based on token positions.
         """
         # return x # ablation: NoPE
-        
+
         # get the cosine and sine values for the current token positions
         # (..., seq_len, d_k//2)
         cos = self.cos_cached[token_positions]
@@ -234,8 +241,6 @@ class CausalMultiHeadSelfAttention(nn.Module):
         """
         Multi-head self-attention layer with causal masking and optional rotary positional embeddings.
 
-        This module projects the input into queries, keys, and values, applies multi-head self-attention with a causal mask (preventing each position from attending to future positions), and supports rotary positional embeddings for improved relative position encoding. The output is projected back to the model dimension.
-
         Args:
             d_model (int): Hidden size of the model (the main feature dimension used throughout the Transformer).
             num_heads (int): Number of heads to use in multi-headed attention.
@@ -262,8 +267,8 @@ class CausalMultiHeadSelfAttention(nn.Module):
         Applies multi-head self-attention with causal masking and optional rotary positional embeddings.
 
         This method projects the input into queries, keys, and values, applies rotary positional encoding if enabled.
-        Performs scaled dot-product attention with a causal mask to prevent attending to future positions.
-        Finally, projects the concatenated attention outputs back to the model dimension.
+        Performs scaled dot-product attention with a causal mask to prevent attending to future positions. Finally,
+        projects the concatenated attention outputs back to the model dimension.
         """
         sequence_length = x.shape[-2]
 
@@ -304,7 +309,8 @@ class TransformerBlock(nn.Module):
         dtype: torch.dtype = None,
     ):
         """
-        The basic Transformer block, composed of pre-layer normalization, multi-head self-attention, and a SwiGLU feed-forward network, with residual connections.
+        The basic Transformer block, composed of pre-layer normalization, multi-head self-attention, and a SwiGLU feed-
+        forward network, with residual connections.
 
         Args:
             d_model (int): The dimensionality of the Transformer block input.
@@ -330,7 +336,7 @@ class TransformerBlock(nn.Module):
         self, x: Float[Tensor, " batch sequence_length d_model"]
     ) -> Float[Tensor, " batch sequence_length d_model"]:
         """
-        Applies layer normalization, self-attention, and feed-forward network with residual connections (pre-norm).
+        Applies layer normalization, self-attention, and feed-forward network with residual connections (pre- norm).
         """
         # post-norm
         # x = self.ln1(x + self.attn(x))
@@ -355,7 +361,8 @@ class TransformerLM(nn.Module):
         dtype: torch.dtype = None,
     ):
         """
-        Transformer-based language model that stacks multiple Transformer blocks, takes token IDs as input, and outputs logits for each token position.
+        Transformer-based language model that stacks multiple Transformer blocks, takes token IDs as input, and outputs
+        logits for each token position.
 
         Args:
             vocab_size (int): Size of the vocabulary.
@@ -384,7 +391,8 @@ class TransformerLM(nn.Module):
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         """
-        Embeds input token IDs, passes them through stacked Transformer blocks and final normalization, then projects to vocabulary logits.
+        Embeds input token IDs, passes them through stacked Transformer blocks and final normalization, then projects to
+        vocabulary logits.
         """
         x = self.token_embeddings(input_ids)
 
@@ -398,9 +406,9 @@ class TransformerLM(nn.Module):
         """
         Returns the total number of trainable parameters in the model.
 
-        If non_embedding is True (default), the returned parameter count excludes the last layer (output layer).
-        This is because, in many research papers and model reports, the output layer parameters are often reported separately from the rest of the model
-        (sometimes embeddings are *shared* or tied with the embedding layer).
+        If non_embedding is True (default), the returned parameter count excludes the last layer (output layer). This is
+        because, in many research papers and model reports, the output layer parameters are often reported separately
+        from the rest of the model (sometimes embeddings are *shared* or tied with the embedding layer).
         """
         num_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         # Exclude output layer parameters
