@@ -99,7 +99,7 @@ def test_flash_backward_pytorch(is_causal, repeat_count):
 @pytest.mark.parametrize("is_causal", [False, True])
 @pytest.mark.parametrize("repeat_count", range((10)))
 def test_flash_backward_triton(is_causal, repeat_count):
-    dq_expected, dk_expected, dv_expected = flash_backward_results(lambda *args: _attention_and_lse(*args)[0], is_causal)
+    dq_expected, dk_expected, dv_expected = flash_backward_results(lambda *args: _attention_and_lse(*args)[0], is_causal, device="cuda")
 
     q, k, v, do = _make_attn_inputs(device='cuda')
     get_flashattention_autograd_function_triton().apply(q, k, v, is_causal).backward(do)
